@@ -9,14 +9,26 @@ public class PlayerMovement : MonoBehaviour
     [SerializeField] private LayerMask groundLayer;
     [SerializeField] private float jumpingPower = 20f;
     [SerializeField] private float speed = 10f;
+    [SerializeField] private Transform wallCheck;
+    [SerializeField] private LayerMask wallLayer;
 
     private float horizontal;
     private bool isFacingRight = true;
     private Color defaultColor;
+
     private float coyoteJumpTimer;
     private float coyoteJumpTimerMax = 0.2f;
     private float jumpBufferingTimer;
     private float jumpBufferingTimerMax = 0.2f;
+
+    private bool isWallSliding;
+    private float wallSlidingSpeed = 2f;
+
+    private bool isWallJumping;
+    private float wallJumpingDirection;
+    private float wallJumpingTimer;
+    private float wallJumpingTimerMax = 0.2f;
+    private Vector2 wallJumpingPower = new Vector2(8f, 16f);
 
     private void Start()
     {
@@ -31,18 +43,41 @@ public class PlayerMovement : MonoBehaviour
 
     private void Update()
     {
+
         SetPlayerColor(defaultColor);
         if (IsGrounded())
         {
             SetPlayerColor(Color.white);
         }
 
-        HandleHorizontalMovement();
+        if (isWallJumping)
+        {
+            SetPlayerColor(Color.red);
+        }
+
+        if (isWallSliding)
+        {
+            SetPlayerColor(Color.cyan);
+        }
+
+        if (!isWallJumping)
+        {
+            HandleHorizontalMovement();
+        }
+
 
         HandleJumping();
 
-        Flip();
+        WallSlide();
+
+        WallJumping();
+
+        if (!isWallJumping)
+        {
+            Flip();
+        }
     }
+
 
     private void HandleHorizontalMovement()
     {
@@ -88,6 +123,59 @@ public class PlayerMovement : MonoBehaviour
         float playerRadius = 0.5f;
         return Physics2D.OverlapArea(new Vector2(groundCheck.position.x - playerRadius, groundCheck.position.y), new Vector2(groundCheck.position.x + playerRadius, groundCheck.position.y), groundLayer);
     }
+
+    private bool IsWalled()
+    {
+        return Physics2D.OverlapArea(new Vector2(wallCheck.position.x, wallCheck.position.y - 0.5f), new Vector2(wallCheck.position.x, wallCheck.position.y + 0.5f), wallLayer);
+    }
+
+    private void WallSlide()
+    {
+        if (IsWalled() && !IsGrounded() && horizontal != 0f)
+        {
+            isWallSliding = true;
+            rb.velocity = new Vector2(0f, Mathf.Clamp(rb.velocity.y, -wallSlidingSpeed, float.MaxValue));
+        }
+        else
+        {
+            isWallSliding = false;
+        }
+    }
+
+    private void WallJumping()
+    {
+        if (isWallSliding)
+        {
+            isWallSliding = false;
+            wallJumpingDirection = -transform.localScale.x;
+            wallJumpingTimer = wallJumpingTimerMax;
+        }
+        else
+        {
+            wallJumpingTimer -= Time.deltaTime;
+        }
+
+        if (Input.GetButtonDown("Jump") && wallJumpingTimer > 0f)
+        {
+            isWallJumping = true;
+            rb.velocity = new Vector2(wallJumpingDirection * wallJumpingPower.x, wallJumpingPower.y);
+            wallJumpingTimer = 0f;
+
+            if (transform.localScale.x != wallJumpingDirection)
+            {
+                isFacingRight = !isFacingRight;
+                Vector3 localScale = transform.localScale;
+                localScale.x *= -1f;
+                transform.localScale = localScale;
+            }
+        }
+
+        if (IsGrounded() || IsWalled())
+        {
+            isWallJumping = false;
+        }
+    }
+
 
     private void Flip()
     {
