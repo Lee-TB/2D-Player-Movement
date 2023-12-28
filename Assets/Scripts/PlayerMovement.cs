@@ -16,10 +16,14 @@ public class PlayerMovement : MonoBehaviour
     private bool isFacingRight = true;
     private Color defaultColor;
 
+    private bool isJumping;
     private float coyoteJumpTimer;
     private float coyoteJumpTimerMax = 0.2f;
     private float jumpBufferingTimer;
     private float jumpBufferingTimerMax = 0.2f;
+
+    private int maxJumpNumber = 5;
+    private int jumpNumber;
 
     private bool isWallSliding;
     private float wallSlidingSpeed = 2f;
@@ -43,7 +47,23 @@ public class PlayerMovement : MonoBehaviour
 
     private void Update()
     {
+        ChangePlayerColor();
 
+        if (!isWallJumping)
+        {
+            HorizontalMovement();
+        }
+
+
+        Jumping();
+
+        WallSlide();
+
+        WallJumping();
+    }
+
+    private void ChangePlayerColor()
+    {
         SetPlayerColor(defaultColor);
         if (IsGrounded())
         {
@@ -59,37 +79,30 @@ public class PlayerMovement : MonoBehaviour
         {
             SetPlayerColor(Color.cyan);
         }
-
-        if (!isWallJumping)
-        {
-            HandleHorizontalMovement();
-        }
-
-
-        HandleJumping();
-
-        WallSlide();
-
-        WallJumping();
-
-        if (!isWallJumping)
-        {
-            Flip();
-        }
     }
 
-
-    private void HandleHorizontalMovement()
+    private void HorizontalMovement()
     {
         horizontal = Input.GetAxisRaw("Horizontal");
         rb.velocity = new Vector2(horizontal * speed, rb.velocity.y);
+
+        // Flip
+        if (isFacingRight && horizontal < 0f || !isFacingRight && horizontal > 0f)
+        {
+            isFacingRight = !isFacingRight;
+            Vector3 localScale = transform.localScale;
+            localScale.x *= -1f;
+            transform.localScale = localScale;
+        }
     }
 
-    private void HandleJumping()
+    private void Jumping()
     {
         if (IsGrounded())
         {
             coyoteJumpTimer = coyoteJumpTimerMax;
+            jumpNumber = maxJumpNumber;
+            isJumping = false;
         }
         else
         {
@@ -99,16 +112,26 @@ public class PlayerMovement : MonoBehaviour
         if (Input.GetButtonDown("Jump"))
         {
             jumpBufferingTimer = jumpBufferingTimerMax;
+            jumpNumber--;
         }
         else
         {
             jumpBufferingTimer -= Time.deltaTime;
         }
 
+        // Ground Jump
         if (jumpBufferingTimer > 0f && coyoteJumpTimer > 0f)
         {
             rb.velocity = new Vector2(rb.velocity.x, jumpingPower);
+            isJumping = true;
         }
+
+        // Air Jump
+        if (isJumping && jumpBufferingTimer > 0f && jumpNumber > 0)
+        {
+            rb.velocity = new Vector2(rb.velocity.x, jumpingPower);
+        }
+
 
         if (Input.GetButtonUp("Jump") && rb.velocity.y > 0f)
         {
@@ -176,17 +199,6 @@ public class PlayerMovement : MonoBehaviour
         }
     }
 
-
-    private void Flip()
-    {
-        if (isFacingRight && horizontal < 0f || !isFacingRight && horizontal > 0f)
-        {
-            isFacingRight = !isFacingRight;
-            Vector3 localScale = transform.localScale;
-            localScale.x *= -1f;
-            transform.localScale = localScale;
-        }
-    }
 
     private void SetPlayerColor(Color color)
     {
